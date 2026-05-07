@@ -1,4 +1,4 @@
-# requirements_2.2.txt
+# requirements.txt
 # Dependency untuk Dashboard Evaluasi Kompetensi Pegawai v2.2
 #
 # Install dengan:
