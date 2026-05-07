@@ -1,0 +1,16 @@
+# requirements_2.2.txt
+# Dependency untuk Dashboard Evaluasi Kompetensi Pegawai v2.2
+#
+# Install dengan:
+# pip install -r requirements_2.2.txt
+
+streamlit
+pandas
+numpy
+openpyxl
+scikit-learn
+sentence-transformers
+torch
+python-dateutil
+pytz
+pytest
