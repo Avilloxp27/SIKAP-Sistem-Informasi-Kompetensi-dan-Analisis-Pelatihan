@@ -552,11 +552,11 @@ def proses_file_upload(
         jumlah_level_default = int(mask_level_kosong.sum())
 
         if jumlah_level_default > 0:
-            df_histori.loc[mask_level_kosong, his_level] = nilai_level_default
+            df_histori.loc[mask_level_kosong, his_level] = str(nilai_level_default)
 
             if "Prediksi_Level_Kompetensi" in df_histori.columns:
-                df_histori.loc[mask_level_kosong, "Prediksi_Level_Kompetensi"] = nilai_level_default
-
+                df_histori.loc[mask_level_kosong, "Prediksi_Level_Kompetensi"] = str(nilai_level_default)
+                
             if "Status_Prediksi" in df_histori.columns:
                 df_histori.loc[mask_level_kosong, "Status_Prediksi"] = (
                     df_histori.loc[mask_level_kosong, "Status_Prediksi"].astype(str)
