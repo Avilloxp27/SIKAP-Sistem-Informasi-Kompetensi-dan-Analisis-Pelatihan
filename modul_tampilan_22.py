@@ -221,33 +221,34 @@ def _buat_daftar_kompetensi(row) -> List[Tuple[str, str]]:
     return daftar_kompetensi
 
 
-def _buat_html_kompetensi(daftar_kompetensi: List[Tuple[str, str]]) -> str:
-    """Membuat HTML item kompetensi."""
-    item_html = ""
+def _buat_html_kompetensi(daftar_kompetensi):
+
+    items = []
 
     for item, kondisi in daftar_kompetensi:
+
         item_safe = nilai_aman(item)
 
         if kondisi == "ok":
             css_class = "competency-ok"
             label = '<span class="status-pill status-pill-ok">Sesuai</span>'
+
         elif kondisi == "gap":
             css_class = "competency-gap"
             label = '<span class="status-pill status-pill-gap">Belum terpenuhi</span>'
+
         else:
             css_class = "competency-neutral"
             label = ""
 
-        item_html += f"""
-        <div class="competency-item {css_class}">
-            {item_safe}{label}
-        </div>
-        """
+        items.append(
+            f'<div class="competency-item {css_class}">{item_safe}{label}</div>'
+        )
 
-    if not item_html:
-        item_html = '<div class="competency-item competency-neutral">Belum ada data kompetensi.</div>'
+    if not items:
+        return '<div class="competency-item competency-neutral">Belum ada data kompetensi.</div>'
 
-    return item_html
+    return "".join(items)
 
 
 def _buat_html_rekomendasi(row) -> str:
