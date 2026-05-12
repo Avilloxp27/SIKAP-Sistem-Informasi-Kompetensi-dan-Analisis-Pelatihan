@@ -539,261 +539,261 @@ def proses_file_upload(
         if "Confidence_Prediksi" not in df_histori.columns:
             df_histori["Confidence_Prediksi"] = 0.0
 
-# ------------------------------------------------------------
-# Mode praktis: isi level kosong dengan default.
-# ------------------------------------------------------------
-jumlah_level_default = 0
+    # ------------------------------------------------------------
+    # Mode praktis: isi level kosong dengan default.
+    # ------------------------------------------------------------
+    jumlah_level_default = 0
 
-if isi_level_default:
+    if isi_level_default:
 
-# Jika kolom level belum ada
-if his_level is None:
-    df_histori["Level_kompetensi"] = np.nan
-    his_level = "Level_kompetensi"
+        # Jika kolom level belum ada
+        if his_level is None:
+            df_histori["Level_kompetensi"] = np.nan
+            his_level = "Level_kompetensi"
 
-# Pastikan kolom numerik
-df_histori[his_level] = pd.to_numeric(
-    df_histori[his_level],
-    errors="coerce"
-)
-
-# Cari level kosong
-mask_level_kosong = df_histori[his_level].isna()
-
-jumlah_level_default = int(mask_level_kosong.sum())
-
-if jumlah_level_default > 0:
-
-    nilai_default = float(nilai_level_default)
-
-    # Isi level kompetensi kosong
-    df_histori.loc[
-        mask_level_kosong,
-        his_level
-    ] = nilai_default
-
-    # Sinkronkan prediksi level
-    if "Prediksi_Level_Kompetensi" in df_histori.columns:
-
-        df_histori["Prediksi_Level_Kompetensi"] = pd.to_numeric(
-            df_histori["Prediksi_Level_Kompetensi"],
+        # Pastikan kolom numerik
+        df_histori[his_level] = pd.to_numeric(
+            df_histori[his_level],
             errors="coerce"
         )
 
-        df_histori.loc[
-            mask_level_kosong,
-            "Prediksi_Level_Kompetensi"
-        ] = nilai_default
+        # Cari level kosong
+        mask_level_kosong = df_histori[his_level].isna()
 
-    # Tambahkan status prediksi
-    if "Status_Prediksi" in df_histori.columns:
+        jumlah_level_default = int(mask_level_kosong.sum())
 
-        status_awal = (
+        if jumlah_level_default > 0:
+
+            nilai_default = float(nilai_level_default)
+
+            # Isi level kompetensi kosong
             df_histori.loc[
                 mask_level_kosong,
-                "Status_Prediksi"
-            ]
-            .fillna("")
-            .astype(str)
-            .str.strip()
+                his_level
+            ] = nilai_default
+
+            # Sinkronkan prediksi level
+            if "Prediksi_Level_Kompetensi" in df_histori.columns:
+
+                df_histori["Prediksi_Level_Kompetensi"] = pd.to_numeric(
+                    df_histori["Prediksi_Level_Kompetensi"],
+                    errors="coerce"
+                )
+
+                df_histori.loc[
+                    mask_level_kosong,
+                    "Prediksi_Level_Kompetensi"
+                ] = nilai_default
+
+            # Tambahkan status prediksi
+            if "Status_Prediksi" in df_histori.columns:
+
+                status_awal = (
+                    df_histori.loc[
+                        mask_level_kosong,
+                        "Status_Prediksi"
+                    ]
+                    .fillna("")
+                    .astype(str)
+                    .str.strip()
+                )
+
+                status_baru = (
+                    status_awal
+                    + f" | Level default {nilai_level_default}"
+                )
+
+                status_baru = (
+                    status_baru
+                    .str.replace(r"^\s*\|\s*", "", regex=True)
+                    .str.replace(r"\s+\|\s+\|", " | ", regex=True)
+                    .str.strip()
+                )
+
+                df_histori.loc[
+                    mask_level_kosong,
+                    "Status_Prediksi"
+                ] = status_baru
+
+            # Logging metadata
+            meta["catatan"].append(
+                f"Mode praktis aktif: "
+                f"{jumlah_level_default:,} "
+                f"Level Kompetensi kosong "
+                f"diisi default {nilai_level_default}."
+            )
+
+        else:
+
+            meta["catatan"].append(
+                "Mode praktis aktif, tetapi tidak ada "
+                "Level Kompetensi kosong yang perlu diisi."
+            )
+        # ------------------------------------------------------------
+        # Simpan summary prediksi dan dataframe prediksi.
+        # ------------------------------------------------------------
+        pred_meta["jumlah_level_default"] = jumlah_level_default
+        if his_level is not None and his_level in df_histori.columns:
+            pred_meta["level_kosong_akhir"] = int(df_histori[his_level].apply(is_empty_value).sum())
+        else:
+            pred_meta["level_kosong_akhir"] = 0
+
+        if his_unit is not None and his_unit in df_histori.columns:
+            pred_meta["unit_kosong_akhir"] = int(df_histori[his_unit].apply(is_empty_value).sum())
+        else:
+            pred_meta["unit_kosong_akhir"] = 0
+
+        meta["prediksi_summary"] = pred_meta
+        meta["df_prediksi_ml"] = df_histori.copy()
+
+        # ------------------------------------------------------------
+        # Siapkan data numerik untuk evaluasi.
+        # ------------------------------------------------------------
+        df_standar[std_level] = pd.to_numeric(df_standar[std_level], errors="coerce").fillna(0)
+        df_histori[his_level] = pd.to_numeric(df_histori[his_level], errors="coerce").fillna(0)
+
+        # Pastikan kolom unit tidak kosong agar groupby aman.
+        df_histori[his_unit] = df_histori[his_unit].fillna("").astype(str).str.strip()
+
+        # ------------------------------------------------------------
+        # Ambil level pelatihan tertinggi per pegawai dan unit kompetensi.
+        # ------------------------------------------------------------
+        histori_level = (
+            df_histori
+            .groupby([his_nama, his_nip, his_unit], as_index=False)
+            .agg({
+                his_level: "max",
+                his_pelatihan: gabung_unik,
+            })
         )
 
-        status_baru = (
-            status_awal
-            + f" | Level default {nilai_level_default}"
+        # Rekomendasi pelatihan per unit kompetensi.
+        rekomendasi_unit = (
+            df_histori
+            .groupby(his_unit, as_index=False)[his_pelatihan]
+            .apply(gabung_unik)
+            .rename(columns={his_unit: std_unit, his_pelatihan: "Rekomendasi_Unit"})
         )
 
-        status_baru = (
-            status_baru
-            .str.replace(r"^\s*\|\s*", "", regex=True)
-            .str.replace(r"\s+\|\s+\|", " | ", regex=True)
-            .str.strip()
+        # ------------------------------------------------------------
+        # Evaluasi: pegawai x standar jabatan x histori.
+        # ------------------------------------------------------------
+        detail = df_pegawai.merge(
+            df_standar,
+            left_on=peg_jabatan,
+            right_on=std_jabatan,
+            how="left",
+            suffixes=("", "_Standar"),
         )
 
-        df_histori.loc[
-            mask_level_kosong,
-            "Status_Prediksi"
-        ] = status_baru
-
-        # Logging metadata
-        meta["catatan"].append(
-            f"Mode praktis aktif: "
-            f"{jumlah_level_default:,} "
-            f"Level Kompetensi kosong "
-            f"diisi default {nilai_level_default}."
+        detail = detail.merge(
+            histori_level,
+            left_on=[peg_nama, peg_nip, std_unit],
+            right_on=[his_nama, his_nip, his_unit],
+            how="left",
+            suffixes=("", "_Histori"),
         )
 
-    else:
+        detail = detail.merge(rekomendasi_unit, on=std_unit, how="left")
 
-        meta["catatan"].append(
-            "Mode praktis aktif, tetapi tidak ada "
-            "Level Kompetensi kosong yang perlu diisi."
+        detail[his_level] = detail[his_level].fillna(0)
+        detail[his_pelatihan] = detail[his_pelatihan].fillna("-")
+        detail["Rekomendasi_Unit"] = detail["Rekomendasi_Unit"].fillna("Belum ada rekomendasi pelatihan")
+
+        detail["Cocok"] = detail[his_level] >= detail[std_level]
+        detail["Gap_Level"] = (detail[std_level] - detail[his_level]).clip(lower=0)
+
+        detail["Kompetensi_Item"] = detail.apply(
+            lambda r: f"{r[std_unit]} lv {int(r[std_level])}" if pd.notna(r.get(std_unit, None)) and str(r.get(std_unit, "")).strip() else "-",
+            axis=1,
         )
-    # ------------------------------------------------------------
-    # Simpan summary prediksi dan dataframe prediksi.
-    # ------------------------------------------------------------
-    pred_meta["jumlah_level_default"] = jumlah_level_default
-    if his_level is not None and his_level in df_histori.columns:
-        pred_meta["level_kosong_akhir"] = int(df_histori[his_level].apply(is_empty_value).sum())
-    else:
-        pred_meta["level_kosong_akhir"] = 0
 
-    if his_unit is not None and his_unit in df_histori.columns:
-        pred_meta["unit_kosong_akhir"] = int(df_histori[his_unit].apply(is_empty_value).sum())
-    else:
-        pred_meta["unit_kosong_akhir"] = 0
+        detail["Kompetensi_Cocok_Item"] = detail.apply(
+            lambda r: f"{r[std_unit]} lv {int(r[std_level])}" if bool(r["Cocok"]) and pd.notna(r.get(std_unit, None)) and str(r.get(std_unit, "")).strip() else "-",
+            axis=1,
+        )
 
-    meta["prediksi_summary"] = pred_meta
-    meta["df_prediksi_ml"] = df_histori.copy()
+        detail["Kompetensi_Kurang_Item"] = detail.apply(
+            lambda r: (
+                f"{r[std_unit]} (butuh level {int(r[std_level])}, saat ini {int(r[his_level])})"
+                if (not bool(r["Cocok"])) and pd.notna(r.get(std_unit, None)) and str(r.get(std_unit, "")).strip()
+                else "-"
+            ),
+            axis=1,
+        )
 
-    # ------------------------------------------------------------
-    # Siapkan data numerik untuk evaluasi.
-    # ------------------------------------------------------------
-    df_standar[std_level] = pd.to_numeric(df_standar[std_level], errors="coerce").fillna(0)
-    df_histori[his_level] = pd.to_numeric(df_histori[his_level], errors="coerce").fillna(0)
+        detail["Rekomendasi_Item"] = detail.apply(
+            lambda r: r["Rekomendasi_Unit"] if not bool(r["Cocok"]) else "-",
+            axis=1,
+        )
 
-    # Pastikan kolom unit tidak kosong agar groupby aman.
-    df_histori[his_unit] = df_histori[his_unit].fillna("").astype(str).str.strip()
+        # ------------------------------------------------------------
+        # Agregasi hasil per pegawai.
+        # ------------------------------------------------------------
+        group_cols = [peg_nama, peg_nip, peg_jabatan]
 
-    # ------------------------------------------------------------
-    # Ambil level pelatihan tertinggi per pegawai dan unit kompetensi.
-    # ------------------------------------------------------------
-    histori_level = (
-        df_histori
-        .groupby([his_nama, his_nip, his_unit], as_index=False)
-        .agg({
-            his_level: "max",
-            his_pelatihan: gabung_unik,
+        optional_map = {}
+        for wanted in ["Unit_Es_IV", "Unit_Es_III", "Unit_Es_II"]:
+            found = find_col(df_pegawai, [wanted, wanted.replace("_", " ")], allow_contains=True)
+            if found and found not in group_cols:
+                group_cols.append(found)
+                optional_map[found] = wanted
+
+        hasil = (
+            detail
+            .groupby(group_cols, as_index=False)
+            .agg({
+                std_unit: "count",
+                "Cocok": "sum",
+                "Kompetensi_Item": gabung_unik,
+                "Kompetensi_Cocok_Item": gabung_unik,
+                "Kompetensi_Kurang_Item": gabung_unik,
+                "Rekomendasi_Item": gabung_unik,
+            })
+        )
+
+        hasil = hasil.rename(columns={
+            peg_nama: "Nama_Pegawai",
+            peg_nip: "NIP_Panjang",
+            peg_jabatan: "Jabatan",
+            std_unit: "Jumlah_Kompetensi_Diuji",
+            "Cocok": "Jumlah_Kompetensi_Cocok",
+            "Kompetensi_Item": "Daftar_Kompetensi",
+            "Kompetensi_Cocok_Item": "Kompetensi_Cocok",
+            "Kompetensi_Kurang_Item": "Kompetensi_Kurang",
+            "Rekomendasi_Item": "Rekomendasi_Pelatihan",
         })
-    )
 
-    # Rekomendasi pelatihan per unit kompetensi.
-    rekomendasi_unit = (
-        df_histori
-        .groupby(his_unit, as_index=False)[his_pelatihan]
-        .apply(gabung_unik)
-        .rename(columns={his_unit: std_unit, his_pelatihan: "Rekomendasi_Unit"})
-    )
+        hasil = hasil.rename(columns=optional_map)
 
-    # ------------------------------------------------------------
-    # Evaluasi: pegawai x standar jabatan x histori.
-    # ------------------------------------------------------------
-    detail = df_pegawai.merge(
-        df_standar,
-        left_on=peg_jabatan,
-        right_on=std_jabatan,
-        how="left",
-        suffixes=("", "_Standar"),
-    )
+        hasil["Skor_Kecocokan_%"] = (
+            hasil["Jumlah_Kompetensi_Cocok"] / hasil["Jumlah_Kompetensi_Diuji"] * 100
+        ).fillna(0).round(2)
 
-    detail = detail.merge(
-        histori_level,
-        left_on=[peg_nama, peg_nip, std_unit],
-        right_on=[his_nama, his_nip, his_unit],
-        how="left",
-        suffixes=("", "_Histori"),
-    )
+        hasil["Status_Kompetensi"] = hasil["Skor_Kecocokan_%"].apply(
+            lambda x: "Kompeten" if x >= 100 else "Tidak Kompeten"
+        )
 
-    detail = detail.merge(rekomendasi_unit, on=std_unit, how="left")
+        hasil["Jabatan_Diuji"] = hasil["Jabatan"]
 
-    detail[his_level] = detail[his_level].fillna(0)
-    detail[his_pelatihan] = detail[his_pelatihan].fillna("-")
-    detail["Rekomendasi_Unit"] = detail["Rekomendasi_Unit"].fillna("Belum ada rekomendasi pelatihan")
+        kolom_akhir = [
+            "Nama_Pegawai",
+            "NIP_Panjang",
+            "Jabatan",
+            "Unit_Es_IV",
+            "Unit_Es_III",
+            "Unit_Es_II",
+            "Jabatan_Diuji",
+            "Skor_Kecocokan_%",
+            "Status_Kompetensi",
+            "Daftar_Kompetensi",
+            "Kompetensi_Cocok",
+            "Kompetensi_Kurang",
+            "Rekomendasi_Pelatihan",
+            "Jumlah_Kompetensi_Diuji",
+            "Jumlah_Kompetensi_Cocok",
+        ]
 
-    detail["Cocok"] = detail[his_level] >= detail[std_level]
-    detail["Gap_Level"] = (detail[std_level] - detail[his_level]).clip(lower=0)
+        hasil = hasil[[c for c in kolom_akhir if c in hasil.columns]].copy()
 
-    detail["Kompetensi_Item"] = detail.apply(
-        lambda r: f"{r[std_unit]} lv {int(r[std_level])}" if pd.notna(r.get(std_unit, None)) and str(r.get(std_unit, "")).strip() else "-",
-        axis=1,
-    )
-
-    detail["Kompetensi_Cocok_Item"] = detail.apply(
-        lambda r: f"{r[std_unit]} lv {int(r[std_level])}" if bool(r["Cocok"]) and pd.notna(r.get(std_unit, None)) and str(r.get(std_unit, "")).strip() else "-",
-        axis=1,
-    )
-
-    detail["Kompetensi_Kurang_Item"] = detail.apply(
-        lambda r: (
-            f"{r[std_unit]} (butuh level {int(r[std_level])}, saat ini {int(r[his_level])})"
-            if (not bool(r["Cocok"])) and pd.notna(r.get(std_unit, None)) and str(r.get(std_unit, "")).strip()
-            else "-"
-        ),
-        axis=1,
-    )
-
-    detail["Rekomendasi_Item"] = detail.apply(
-        lambda r: r["Rekomendasi_Unit"] if not bool(r["Cocok"]) else "-",
-        axis=1,
-    )
-
-    # ------------------------------------------------------------
-    # Agregasi hasil per pegawai.
-    # ------------------------------------------------------------
-    group_cols = [peg_nama, peg_nip, peg_jabatan]
-
-    optional_map = {}
-    for wanted in ["Unit_Es_IV", "Unit_Es_III", "Unit_Es_II"]:
-        found = find_col(df_pegawai, [wanted, wanted.replace("_", " ")], allow_contains=True)
-        if found and found not in group_cols:
-            group_cols.append(found)
-            optional_map[found] = wanted
-
-    hasil = (
-        detail
-        .groupby(group_cols, as_index=False)
-        .agg({
-            std_unit: "count",
-            "Cocok": "sum",
-            "Kompetensi_Item": gabung_unik,
-            "Kompetensi_Cocok_Item": gabung_unik,
-            "Kompetensi_Kurang_Item": gabung_unik,
-            "Rekomendasi_Item": gabung_unik,
-        })
-    )
-
-    hasil = hasil.rename(columns={
-        peg_nama: "Nama_Pegawai",
-        peg_nip: "NIP_Panjang",
-        peg_jabatan: "Jabatan",
-        std_unit: "Jumlah_Kompetensi_Diuji",
-        "Cocok": "Jumlah_Kompetensi_Cocok",
-        "Kompetensi_Item": "Daftar_Kompetensi",
-        "Kompetensi_Cocok_Item": "Kompetensi_Cocok",
-        "Kompetensi_Kurang_Item": "Kompetensi_Kurang",
-        "Rekomendasi_Item": "Rekomendasi_Pelatihan",
-    })
-
-    hasil = hasil.rename(columns=optional_map)
-
-    hasil["Skor_Kecocokan_%"] = (
-        hasil["Jumlah_Kompetensi_Cocok"] / hasil["Jumlah_Kompetensi_Diuji"] * 100
-    ).fillna(0).round(2)
-
-    hasil["Status_Kompetensi"] = hasil["Skor_Kecocokan_%"].apply(
-        lambda x: "Kompeten" if x >= 100 else "Tidak Kompeten"
-    )
-
-    hasil["Jabatan_Diuji"] = hasil["Jabatan"]
-
-    kolom_akhir = [
-        "Nama_Pegawai",
-        "NIP_Panjang",
-        "Jabatan",
-        "Unit_Es_IV",
-        "Unit_Es_III",
-        "Unit_Es_II",
-        "Jabatan_Diuji",
-        "Skor_Kecocokan_%",
-        "Status_Kompetensi",
-        "Daftar_Kompetensi",
-        "Kompetensi_Cocok",
-        "Kompetensi_Kurang",
-        "Rekomendasi_Pelatihan",
-        "Jumlah_Kompetensi_Diuji",
-        "Jumlah_Kompetensi_Cocok",
-    ]
-
-    hasil = hasil[[c for c in kolom_akhir if c in hasil.columns]].copy()
-
-    return hasil, meta
+        return hasil, meta
