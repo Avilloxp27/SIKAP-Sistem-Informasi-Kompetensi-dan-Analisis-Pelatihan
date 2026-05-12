@@ -539,36 +539,96 @@ def proses_file_upload(
         if "Confidence_Prediksi" not in df_histori.columns:
             df_histori["Confidence_Prediksi"] = 0.0
 
-    # ------------------------------------------------------------
-    # Mode praktis: isi level kosong dengan default.
-    # ------------------------------------------------------------
-    jumlah_level_default = 0
-    if isi_level_default:
-        if his_level is None:
-            df_histori["Level_kompetensi"] = ""
-            his_level = "Level_kompetensi"
+# ------------------------------------------------------------
+# Mode praktis: isi level kosong dengan default.
+# ------------------------------------------------------------
+jumlah_level_default = 0
 
-        mask_level_kosong = df_histori[his_level].apply(is_empty_value)
-        jumlah_level_default = int(mask_level_kosong.sum())
+if isi_level_default:
 
-        if jumlah_level_default > 0:
-            df_histori.loc[mask_level_kosong, his_level] = str(nilai_level_default)
+# Jika kolom level belum ada
+if his_level is None:
+    df_histori["Level_kompetensi"] = np.nan
+    his_level = "Level_kompetensi"
 
-            if "Prediksi_Level_Kompetensi" in df_histori.columns:
-                df_histori.loc[mask_level_kosong, "Prediksi_Level_Kompetensi"] = str(nilai_level_default)
-                
-            if "Status_Prediksi" in df_histori.columns:
-                df_histori.loc[mask_level_kosong, "Status_Prediksi"] = (
-                    df_histori.loc[mask_level_kosong, "Status_Prediksi"].astype(str)
-                    + f" | Level default {nilai_level_default}"
-                )
+# Pastikan kolom numerik
+df_histori[his_level] = pd.to_numeric(
+    df_histori[his_level],
+    errors="coerce"
+)
 
-            meta["catatan"].append(
-                f"Mode praktis aktif: {jumlah_level_default:,} Level Kompetensi kosong diisi default {nilai_level_default}."
-            )
-        else:
-            meta["catatan"].append("Mode praktis aktif, tetapi tidak ada Level Kompetensi kosong yang perlu diisi.")
+# Cari level kosong
+mask_level_kosong = df_histori[his_level].isna()
 
+jumlah_level_default = int(mask_level_kosong.sum())
+
+if jumlah_level_default > 0:
+
+    nilai_default = float(nilai_level_default)
+
+    # Isi level kompetensi kosong
+    df_histori.loc[
+        mask_level_kosong,
+        his_level
+    ] = nilai_default
+
+    # Sinkronkan prediksi level
+    if "Prediksi_Level_Kompetensi" in df_histori.columns:
+
+        df_histori["Prediksi_Level_Kompetensi"] = pd.to_numeric(
+            df_histori["Prediksi_Level_Kompetensi"],
+            errors="coerce"
+        )
+
+        df_histori.loc[
+            mask_level_kosong,
+            "Prediksi_Level_Kompetensi"
+        ] = nilai_default
+
+    # Tambahkan status prediksi
+    if "Status_Prediksi" in df_histori.columns:
+
+        status_awal = (
+            df_histori.loc[
+                mask_level_kosong,
+                "Status_Prediksi"
+            ]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+        )
+
+        status_baru = (
+            status_awal
+            + f" | Level default {nilai_level_default}"
+        )
+
+        status_baru = (
+            status_baru
+            .str.replace(r"^\s*\|\s*", "", regex=True)
+            .str.replace(r"\s+\|\s+\|", " | ", regex=True)
+            .str.strip()
+        )
+
+        df_histori.loc[
+            mask_level_kosong,
+            "Status_Prediksi"
+        ] = status_baru
+
+        # Logging metadata
+        meta["catatan"].append(
+            f"Mode praktis aktif: "
+            f"{jumlah_level_default:,} "
+            f"Level Kompetensi kosong "
+            f"diisi default {nilai_level_default}."
+        )
+
+    else:
+
+        meta["catatan"].append(
+            "Mode praktis aktif, tetapi tidak ada "
+            "Level Kompetensi kosong yang perlu diisi."
+        )
     # ------------------------------------------------------------
     # Simpan summary prediksi dan dataframe prediksi.
     # ------------------------------------------------------------
